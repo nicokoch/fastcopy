@@ -61,9 +61,6 @@ mod copy_impl {
     use std::path::Path;
     use std::ptr;
 
-    // https://github.com/rust-lang/rust/blob/6ccfe68076abc78392ab9e1d81b5c1a2123af657/src/libstd/sys_common/io.rs
-    const STD_DEFAULT_BUF_SIZE: u64 = 8 * 1024;
-
     pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> io::Result<u64> {
         let to = to.as_ref();
         let from = from.as_ref();
