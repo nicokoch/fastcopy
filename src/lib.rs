@@ -62,7 +62,7 @@ mod copy_impl {
     use std::ptr;
 
     // https://github.com/rust-lang/rust/blob/6ccfe68076abc78392ab9e1d81b5c1a2123af657/src/libstd/sys_common/io.rs
-    const STD_DEFAULT_BUF_SIZE: usize = 8 * 1024;
+    const STD_DEFAULT_BUF_SIZE: u64 = 8 * 1024;
 
     pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> io::Result<u64> {
         let to = to.as_ref();
@@ -76,18 +76,10 @@ mod copy_impl {
 
         let mut reader = fs::File::open(from)?;
         let mut writer = fs::File::create(to)?;
-        let perm = reader.metadata()?.permissions();
-        let len = {
-            let metadata = reader.metadata()?;
-            metadata.size() as libc::size_t
+        let (perm, len) = {
+        let metadata = reader.metadata()?;
+            (metadata.permissions(), metadata.size() as u64)
         };
-
-        if len < STD_DEFAULT_BUF_SIZE {
-            // copy_file_range is usually only useful if we can save system calls
-            // except on BTRFS/NFS, were we c_f_r can leverage some fs internals
-            // TODO detect if we are on BTRFS or network fs
-            return io::copy(&mut reader, &mut writer);
-        }
 
         let mut written = 0u64;
         unsafe {
@@ -97,18 +89,20 @@ mod copy_impl {
                     ptr::null_mut(),
                     writer.as_raw_fd(),
                     ptr::null_mut(),
-                    len,
+                    len as usize,
                     0,
                 ) {
                     ret if ret >= 0 => written += ret as u64,
                     ret if ret == -1 => {
                         let err = io::Error::last_os_error();
-                        if err.raw_os_error().unwrap() == libc::ENOSYS {
-                            // Kernel does not support copy_file_range
-                            // Fallback to std implementation
-                            return io::copy(&mut reader, &mut writer);
-                        } else {
-                            return Err(err);
+                        match err.raw_os_error().unwrap() {
+                            libc::ENOSYS | libc::EXDEV => {
+                                // Fallback
+                                let ret = io::copy(&mut reader, &mut writer)?;
+                                fs::set_permissions(to, perm)?;
+                                return Ok(ret);
+                            }
+                            _ => return Err(err),
                         }
                     }
                     _ => unreachable!(),
