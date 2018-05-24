@@ -78,3 +78,73 @@ fn mb_100_std(b: &mut Bencher) {
         fs::copy(&source_file, &target_file).expect("error copying file");
     });
 }
+
+#[bench]
+fn copy_100_small_files_fastcopy(b: &mut Bencher) {
+    let source_files: Vec<_> = (0..100).map(|_i| {
+        let mut source_file = tempfile::NamedTempFile::new().unwrap();
+        write!(source_file, "Hello World!").unwrap();
+        source_file.into_temp_path()
+    }).collect();
+    let target_file = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+
+    b.iter(|| {
+        for source_file in &source_files {
+            fcopy::copy(&source_file, &target_file).expect("error copying file");
+        }
+    });
+}
+
+#[bench]
+fn copy_100_small_files_std(b: &mut Bencher) {
+    let source_files: Vec<_> = (0..100).map(|_i| {
+        let mut source_file = tempfile::NamedTempFile::new().unwrap();
+        write!(source_file, "Hello World!").unwrap();
+        source_file.into_temp_path()
+    }).collect();
+    let target_file = tempfile::NamedTempFile::new().unwrap().into_temp_path();
+
+    b.iter(|| {
+        for source_file in &source_files {
+            fs::copy(&source_file, &target_file).expect("error copying file");
+        }
+    });
+}
+
+use std::path::PathBuf;
+
+#[bench]
+fn copy_100_small_files_across_fs_fastcopy(b: &mut Bencher) {
+    let source_files: Vec<_> = (0..100).map(|i| {
+        let mut path = PathBuf::new();
+        path.push("source_files/");
+        path.push(i.to_string());
+        let mut source_file = fs::File::create(&path).unwrap();
+        write!(source_file, "Hello World!").unwrap();
+        path
+    }).collect();
+    let target_file = "tmpfs/target.txt";
+    b.iter(|| {
+        for source_file in &source_files {
+            fcopy::copy(&source_file, &target_file).expect("error copying file");
+        }
+    });
+}
+
+#[bench]
+fn copy_100_small_files_across_fs_std(b: &mut Bencher) {
+    let source_files: Vec<_> = (0..100).map(|i| {
+        let mut path = PathBuf::new();
+        path.push("source_files/");
+        path.push(i.to_string());
+        let mut source_file = fs::File::create(&path).unwrap();
+        write!(source_file, "Hello World!").unwrap();
+        path
+    }).collect();
+    let target_file = "tmpfs/target.txt";
+    b.iter(|| {
+        for source_file in &source_files {
+            fs::copy(&source_file, &target_file).expect("error copying file");
+        }
+    });
+}

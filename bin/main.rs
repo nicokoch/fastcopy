@@ -2,11 +2,19 @@ extern crate fastcopy as fcopy;
 
 use std::fs;
 use std::io::Write;
+use std::path::PathBuf;
+
 fn main() {
-    {
-        let mut f = fs::File::create("abc.txt").expect("Unable to create file");
-        let content: Vec<u8> = (0..100 * 1024 * 1024).map(|_| b'a').collect();
-        f.write_all(&content).unwrap();
+    let source_files: Vec<_> = (0..100).map(|i| {
+        let mut path = PathBuf::new();
+        path.push("source_files/");
+        path.push(i.to_string());
+        let mut source_file = fs::File::create(&path).unwrap();
+        write!(source_file, "Hello World!").unwrap();
+        path
+    }).collect();
+    let target_file = "tmpfs/target.txt";
+    for file in &source_files {
+        fs::copy(file, target_file).unwrap();
     }
-    fcopy::copy("abc.txt", "cba.txt").expect("error copying file");
 }
