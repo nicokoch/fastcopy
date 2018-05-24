@@ -2,14 +2,17 @@
 Copy files faster in rust
 
 # Benchmark results
-test mb_100_fastcopy     ... bench:  39,366,674 ns/iter (+/- 1,930,715)
+## With fastcopy on same fs (ext4), same files, different sizes
+```
+test mb_100_fastcopy     ... bench:  37,267,161 ns/iter (+/- 1,729,334)
+test mb_100_std          ... bench:  47,247,206 ns/iter (+/- 2,381,765)
+test mb_10_fastcopy      ... bench:   3,091,479 ns/iter (+/- 332,671)
+test mb_10_std           ... bench:   4,042,377 ns/iter (+/- 355,336)
+test small_file_fastcopy ... bench:       7,120 ns/iter (+/- 812)
+test small_file_std      ... bench:       7,179 ns/iter (+/- 1,061)
+```
+## With fastcopy on same fs (ext4), different small files
 
-test mb_100_std          ... bench:  50,037,671 ns/iter (+/- 2,120,651)
+## Without fastcopy on same fs (ext4) - Atomic check does apply, different small files
 
-test mb_10_fastcopy      ... bench:   3,335,938 ns/iter (+/- 516,089)
-
-test mb_10_std           ... bench:   4,505,315 ns/iter (+/- 503,460)
-
-test small_file_fastcopy ... bench:       7,513 ns/iter (+/- 987)
-
-test small_file_std      ... bench:       7,542 ns/iter (+/- 580)
+## With fastcopy across different mounts - Atomic check does not apply, different small files
