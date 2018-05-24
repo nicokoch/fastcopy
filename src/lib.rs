@@ -60,6 +60,11 @@ mod copy_impl {
     use std::os::unix::io::AsRawFd;
     use std::path::Path;
     use std::ptr;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    // Kernel prior to 4.5 don't have copy_file_range
+    // We store the availability in a global to avoid unneccessary syscalls
+    static HAS_COPY_FILE_RANGE: AtomicBool = AtomicBool::new(true);
 
     pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> io::Result<u64> {
         let to = to.as_ref();
@@ -74,35 +79,58 @@ mod copy_impl {
         let mut reader = fs::File::open(from)?;
         let mut writer = fs::File::create(to)?;
         let (perm, len) = {
-        let metadata = reader.metadata()?;
-            (metadata.permissions(), metadata.size() as u64)
+            let metadata = reader.metadata()?;
+            (metadata.permissions(), metadata.size())
         };
 
+        let has_copy_file_range = HAS_COPY_FILE_RANGE.load(Ordering::Relaxed);
         let mut written = 0u64;
-        unsafe {
-            while written < len as u64 {
-                match copy_file_range(
-                    reader.as_raw_fd(),
-                    ptr::null_mut(),
-                    writer.as_raw_fd(),
-                    ptr::null_mut(),
-                    len as usize,
-                    0,
-                ) {
-                    ret if ret >= 0 => written += ret as u64,
-                    ret if ret == -1 => {
-                        let err = io::Error::last_os_error();
-                        match err.raw_os_error().unwrap() {
-                            libc::ENOSYS | libc::EXDEV => {
-                                // Fallback
-                                let ret = io::copy(&mut reader, &mut writer)?;
-                                fs::set_permissions(to, perm)?;
-                                return Ok(ret);
-                            }
-                            _ => return Err(err),
-                        }
+
+        while written < len {
+            // TODO should ideally use TryFrom
+            let bytes_to_copy = if len - written > usize::max_value() as u64 {
+                usize::max_value()
+            } else {
+                (len - written) as usize
+            };
+
+            let copy_result = if has_copy_file_range {
+                let copy_result: Result<u64, io::Error> = unsafe {
+                    match copy_file_range(
+                        reader.as_raw_fd(),
+                        ptr::null_mut(),
+                        writer.as_raw_fd(),
+                        ptr::null_mut(),
+                        bytes_to_copy,
+                        0,
+                    ) {
+                        ret if ret >= 0 => Ok(ret as u64),
+                        ret if ret == -1 => Err(io::Error::last_os_error()),
+                        _ => unreachable!(),
                     }
-                    _ => unreachable!(),
+                };
+                if let Err(ref copy_err) = copy_result {
+                    if let Some(libc::ENOSYS) = copy_err.raw_os_error() {
+                        HAS_COPY_FILE_RANGE.store(false, Ordering::Relaxed);
+                    }
+                }
+                copy_result
+            } else {
+                Err(io::Error::from_raw_os_error(libc::ENOSYS))
+            };
+            match copy_result {
+                Ok(ret) => written += ret as u64,
+                Err(err) => {
+                    match err.raw_os_error() {
+                        Some(os_err) if os_err == libc::ENOSYS || os_err == libc::EXDEV => {
+                            // Either kernel is too old or the files are not mounted on the same fs.
+                            // Try again with fallback method
+                            let ret = io::copy(&mut reader, &mut writer)?;
+                            fs::set_permissions(to, perm)?;
+                            return Ok(ret);
+                        }
+                        _ => return Err(err),
+                    }
                 }
             }
         }
