@@ -5,7 +5,7 @@ use std::io::Write;
 use std::path::PathBuf;
 
 fn main() {
-    let source_files: Vec<_> = (0..100).map(|i| {
+    let source_files: Vec<_> = (0..2).map(|i| {
         let mut path = PathBuf::new();
         path.push("source_files/");
         path.push(i.to_string());
@@ -13,8 +13,8 @@ fn main() {
         write!(source_file, "Hello World!").unwrap();
         path
     }).collect();
-    let target_file = "tmpfs/target.txt";
+    let target_file = "target.txt";
     for file in &source_files {
-        fs::copy(file, target_file).unwrap();
+        fcopy::copy(file, target_file).unwrap();
     }
 }

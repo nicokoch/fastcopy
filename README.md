@@ -28,6 +28,15 @@ On some file systems (i.e. BTRFS) copy_file_range is almost a noop (no actual co
 So the performance impact on those file systems would be large with small files also.
 
 ## Without fastcopy on same fs (ext4) - Atomic check does apply, different small files
+```
+test copy_100_small_files_fastcopy           ... bench:     784,432 ns/iter (+/- 77,554)
+test copy_100_small_files_std                ... bench:     783,031 ns/iter (+/- 147,595)
+```
+
+Notes: Tested on linux kernel 3.16, where copy_file_range is not available.
+The atomic HAS_COPY_FILE_RANGE will be set to false here. This value is only set on the first copy.
+So every copy after that will be similar to std's implementation.
+Performance impact negligable.
 
 ## With fastcopy across different mounts - Atomic check does not apply, different small files
 ```

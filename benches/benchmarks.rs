@@ -114,7 +114,7 @@ fn copy_100_small_files_std(b: &mut Bencher) {
 use std::path::PathBuf;
 
 #[bench]
-fn copy_100_small_files_across_fs_fastcopy(b: &mut Bencher) {
+fn copy_across_fs_100_small_files_fastcopy(b: &mut Bencher) {
     let source_files: Vec<_> = (0..100).map(|i| {
         let mut path = PathBuf::new();
         path.push("source_files/");
@@ -132,7 +132,7 @@ fn copy_100_small_files_across_fs_fastcopy(b: &mut Bencher) {
 }
 
 #[bench]
-fn copy_100_small_files_across_fs_std(b: &mut Bencher) {
+fn copy_across_fs_100_small_files_std(b: &mut Bencher) {
     let source_files: Vec<_> = (0..100).map(|i| {
         let mut path = PathBuf::new();
         path.push("source_files/");
