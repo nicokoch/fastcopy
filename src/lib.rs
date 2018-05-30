@@ -54,6 +54,7 @@ pub fn copy<P: AsRef<Path>, Q: AsRef<Path>>(from: P, to: Q) -> io::Result<u64> {
 #[cfg(target_os = "linux")]
 mod copy_impl {
     use libc;
+    use std::cmp;
     use std::fs;
     use std::io;
     use std::os::unix::fs::MetadataExt;
@@ -87,14 +88,8 @@ mod copy_impl {
         let mut written = 0u64;
 
         while written < len {
-            // TODO should ideally use TryFrom
-            let bytes_to_copy = if len - written > usize::max_value() as u64 {
-                usize::max_value()
-            } else {
-                (len - written) as usize
-            };
-
             let copy_result = if has_copy_file_range {
+                let bytes_to_copy = cmp::min(len - written, usize::max_value() as u64) as usize;
                 let copy_result: Result<u64, io::Error> = unsafe {
                     match copy_file_range(
                         reader.as_raw_fd(),
@@ -125,6 +120,7 @@ mod copy_impl {
                         Some(os_err) if os_err == libc::ENOSYS || os_err == libc::EXDEV => {
                             // Either kernel is too old or the files are not mounted on the same fs.
                             // Try again with fallback method
+                            assert_eq!(written, 0);
                             let ret = io::copy(&mut reader, &mut writer)?;
                             fs::set_permissions(to, perm)?;
                             return Ok(ret);
