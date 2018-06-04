@@ -122,7 +122,7 @@ mod copy_impl {
                             // Try again with fallback method
                             assert_eq!(written, 0);
                             let ret = io::copy(&mut reader, &mut writer)?;
-                            fs::set_permissions(to, perm)?;
+                            writer.set_permissions(perm)?;
                             return Ok(ret);
                         }
                         _ => return Err(err),
@@ -130,7 +130,7 @@ mod copy_impl {
                 }
             }
         }
-        fs::set_permissions(&to, perm)?;
+        writer.set_permissions(perm)?;
         Ok(written)
     }
 
