@@ -1,6 +1,9 @@
 # fastcopy
 Copy files faster in rust
 
+Update 11.06.2018: The approach taken by this lib has been merged into rutc in https://github.com/rust-lang/rust/pull/50772 .
+So there will not be any performance gain by using this library (at least on rust nightly)
+
 # Benchmark results
 ## With fastcopy on same fs (ext4), same files, different sizes
 ```
